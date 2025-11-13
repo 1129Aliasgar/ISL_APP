@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet permission for API calls and audio streaming -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
     <application
         android:label="g_one"
         android:name="${applicationName}"

@@ -1,5 +1,5 @@
 node_modules/
-.env
+# .env
 audio/
 *.log
 .DS_Store

@@ -40,11 +40,24 @@ class ApiService {
           final audioUrl = data['audioUrl'] as String?;
           
           if (audioUrl != null) {
-            // Play audio in browser
-            // audioUrl is like /api/audio/filename.mp3, baseUrl is http://localhost:8000/api
-            // So we need: http://localhost:8000/api/audio/filename.mp3
-            final baseUrlWithoutApi = AppConstants.baseUrl.replaceAll('/api', '');
-            final fullAudioUrl = '$baseUrlWithoutApi$audioUrl';
+            // Construct full audio URL
+            // audioUrl from backend is like: /api/audio/filename.mp3
+            // baseUrl is like: http://localhost:8000/api or https://your-domain.com/api
+            // We need: http://localhost:8000/api/audio/filename.mp3 or https://your-domain.com/api/audio/filename.mp3
+            String fullAudioUrl;
+            if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) {
+              // Already a full URL
+              fullAudioUrl = audioUrl;
+            } else if (audioUrl.startsWith('/')) {
+              // Relative URL - construct from baseUrl
+              final baseUrlWithoutApi = AppConstants.baseUrl.replaceAll('/api', '');
+              fullAudioUrl = '$baseUrlWithoutApi$audioUrl';
+            } else {
+              // Relative path without leading slash
+              final baseUrlWithoutApi = AppConstants.baseUrl.replaceAll('/api', '');
+              fullAudioUrl = '$baseUrlWithoutApi/api/$audioUrl';
+            }
+            
             await _playAudio(fullAudioUrl, volume ?? 0.8);
           }
         }
@@ -67,10 +80,14 @@ class ApiService {
 
   static Future<void> _playAudio(String url, double volume) async {
     try {
-      await _audioPlayer.setVolume(volume);
+      // Set volume (0.0 to 1.0) - audioplayers supports Android, iOS, and Web
+      await _audioPlayer.setVolume(volume.clamp(0.0, 1.0));
+      
+      // Play audio - works on all platforms (Android, iOS, Web)
       await _audioPlayer.play(UrlSource(url));
     } catch (e) {
       print('Error playing audio: $e');
+      // Don't rethrow - allow the app to continue even if audio fails
     }
   }
 
