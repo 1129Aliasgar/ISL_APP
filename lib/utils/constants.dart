@@ -12,7 +12,7 @@ class AppConstants {
   static const String routeSettings = '/settings';
 
   // API
-  static const String baseUrl = 'http://localhost:8000/api';
+  static const String baseUrl = 'https://isl-app-18od.onrender.com/api';
   static const String textToSpeechEndpoint = '/text-to-speech';
   static const String speakEndpoint = '/speak';
   static const String voicesEndpoint = '/voices';
