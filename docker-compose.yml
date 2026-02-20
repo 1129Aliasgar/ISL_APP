@@ -1,16 +1,23 @@
 version: "3.9"
 
 services:
-
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"     # RabbitMQ
-      - "15672:15672"   # RabbitMQ dashboard
+      - "5672:5672" # RabbitMQ
+      - "15672:15672" # RabbitMQ dashboard
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+
+  mongodb:
+    image: mongo:6
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
 
   backend:
     build:
@@ -26,12 +33,17 @@ services:
 
   backend-ml:
     build:
-      context: .
-      dockerfile: isl-glove-AI/Dockerfile
+      context: ./isl-glove-AI
+      dockerfile: Dockerfile
     container_name: backend-ml
     ports:
       - "5000:5000"
     depends_on:
       - rabbitmq
+      - mongodb
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      MONGO_URI: mongodb://host.docker.internal:27017/isl_glove
+
+volumes:
+  mongo-data:

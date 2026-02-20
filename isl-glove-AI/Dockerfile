@@ -1,35 +1,20 @@
-# Base image with Node
-FROM node:18
+# Use official Node image
+FROM node:18-alpine
 
-# Install Python and pip
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
-    apt-get clean
-
-# Set working directory
+# Create app directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install Node dependencies
-WORKDIR /app
+# Install dependencies
 RUN npm install
 
-# Copy backend source
+# Copy all source files
 COPY . .
 
-# Copy ML folder
-COPY ml ./ml
-
-# Copy requirements.txt
-COPY requirements.txt .
-
-# Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-# Expose port
+# Expose app port
 EXPOSE 5000
 
-# Start Node server
+# Start app
 CMD ["npm", "start"]
