@@ -10,6 +10,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "gesture_model.h5")
 NORMALIZER_PATH = os.path.join(BASE_DIR, "normalizer.npz")
 LABELS_PATH = os.path.join(BASE_DIR, "labels.json")
+TIMESTEPS = 50
+FEATURES = 11
 
 
 def load_label_map():
@@ -24,12 +26,20 @@ def normalize_input(data):
     return (data - mean) / std
 
 
+def validate_shape(data):
+    if data.ndim != 3 or data.shape[1] != TIMESTEPS or data.shape[2] != FEATURES:
+        raise ValueError(
+            f"Expected input shape (1, {TIMESTEPS}, {FEATURES}), got {data.shape}"
+        )
+
+
 def main():
     model = tf.keras.models.load_model(MODEL_PATH)
     labels = load_label_map()
 
     raw_data = json.loads(sys.argv[1])
     input_data = np.array([raw_data], dtype=np.float32)
+    validate_shape(input_data)
     input_data = normalize_input(input_data)
 
     probs = model.predict(input_data, verbose=0)[0]

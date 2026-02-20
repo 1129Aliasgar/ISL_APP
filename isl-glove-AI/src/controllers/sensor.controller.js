@@ -3,7 +3,7 @@ const { addToBuffer } = require('../utils/sensorBuffer');
 
 const createSensorData = async (req, res, next) => {
   try {
-    const { deviceId, sensors } = req.body;
+    const { deviceId, sensors, timestamp } = req.body;
 
     if (!deviceId || !sensors) {
       return res.status(400).json({
@@ -12,12 +12,20 @@ const createSensorData = async (req, res, next) => {
       });
     }
 
-    const { flex, accel, gyro, orientation } = sensors;
+    const { flex, accel, gyro } = sensors;
 
-    if (!flex || !accel || !gyro || !orientation) {
+    if (!flex || !accel || !gyro ) {
       return res.status(400).json({
         success: false,
         message: "Invalid sensor format"
+      });
+    }
+
+    const readingTimestamp = timestamp ? new Date(timestamp) : new Date();
+    if (Number.isNaN(readingTimestamp.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid timestamp format"
       });
     }
 
@@ -25,26 +33,27 @@ const createSensorData = async (req, res, next) => {
       ...flex,
       ...accel,
       ...gyro,
-      ...orientation
     ];
 
-    const window = addToBuffer(deviceId, reading);
-    if (window) {
+    const bufferedWindow = addToBuffer(deviceId, reading, readingTimestamp);
+    if (bufferedWindow) {
+      const { window, windowStart } = bufferedWindow;
       await sensorService.saveSensorWindow({
         deviceId,
-        windowStart: new Date(),
+        windowStart,
         data: window
       });
 
-      res.status(201).json({
-        message:"Data save"
-      })
+      return res.status(201).json({
+        message:"Data save",
+        window
+      });
     }
 
-     res.status(200).json({
+     return res.status(200).json({
       message:"Data reached",
-      status:"Sucess"
-     })
+      status:"Success"
+     });
 
   } catch (err) {
     next(err);

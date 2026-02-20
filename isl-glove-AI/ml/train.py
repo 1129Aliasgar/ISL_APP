@@ -14,6 +14,8 @@ from export_tflite import export_tflite
 DB_URI = "mongodb://127.0.0.1:27017/"
 DB_NAME = "isl_glove"
 COLLECTION_NAME = "sensorwindows"
+TIMESTEPS = 50
+FEATURES = 11
 
 BASE_DIR = Path(__file__).resolve().parent
 NORMALIZER_PATH = BASE_DIR / "normalizer.npz"
@@ -37,6 +39,10 @@ def load_labeled_windows():
 
     if X.ndim != 3:
         raise ValueError(f"Expected input shape (samples, timesteps, features), got {X.shape}")
+    if X.shape[1] != TIMESTEPS or X.shape[2] != FEATURES:
+        raise ValueError(
+            f"Expected each sample to have shape ({TIMESTEPS}, {FEATURES}), got {X.shape[1:]}"
+        )
 
     return X, y_raw
 

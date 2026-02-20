@@ -14,11 +14,11 @@ print("Old data cleared.")
 
 NUM_SAMPLES = 30   # number of gesture windows
 TIMESTEPS = 50
-FEATURES = 12
+FEATURES = 11
 LABELS = ["A", "B", "C"]
 
 for i in range(NUM_SAMPLES):
-    # Generate 50x12 random sensor window
+    # Generate 50x11 random sensor window
     window = np.random.rand(TIMESTEPS, FEATURES).tolist()
 
     document = {

@@ -68,16 +68,18 @@ ESP32 must send data in this format:
 ```json
 {
   "deviceId": "glove_01",
+  "timestamp": "2026-02-20T12:00:00.000Z",
   "sensors": {
-    "flex": [520, 510, 495],
+    "flex": [520, 510, 495, 505, 499],
     "accel": [0.12, 0.04, 9.81],
-    "gyro": [0.01, 0.02, 0.03],
-    "orientation": [12.5, 4.3, 1.8]
+    "gyro": [0.01, 0.02, 0.03]
   }
 }
 ```
 
 Each request represents **1 timestep**.
+Model features per timestep = **11** (`5 flex + 3 accel + 3 gyro`).
+`timestamp` is accepted for ordering/windowStart and is **not** part of model features.
 
 Backend collects 50 timesteps to create 1 window.
 
@@ -92,7 +94,7 @@ Each stored window:
   "deviceId": "glove_01",
   "windowStart": "2026-02-18T18:00:00Z",
   "data": [
-    [12 features],
+    [11 features],
     ...
     50 timesteps
   ],
@@ -103,7 +105,7 @@ Each stored window:
 Shape:
 
 ```
-(samples, 50, 12)
+(samples, 50, 11)
 ```
 
 ---
@@ -114,7 +116,7 @@ Model: CNN + GRU
 
 Architecture:
 
-Window (50,12)
+Window (50,11)
 → Conv1D
 → MaxPooling
 → GRU
@@ -172,7 +174,7 @@ Body:
 ```json
 {
   "data": [
-    [12 features],
+    [11 features],
     ...
     50 timesteps
   ]
