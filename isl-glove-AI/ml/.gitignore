@@ -1,0 +1,109 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# =========================
+# Virtual Environments
+# =========================
+venv/
+env/
+ENV/
+.venv/
+.conda/
+conda-env/
+env.bak/
+venv.bak/
+
+# =========================
+# Jupyter Notebook
+# =========================
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# =========================
+# Logs & Debug
+# =========================
+*.log
+logs/
+debug.log
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# ML Specific
+# =========================
+
+# Model checkpoints
+checkpoints/
+*.ckpt
+*.h5
+*.pt
+*.pth
+*.onnx
+
+# TensorBoard
+runs/
+events.out.tfevents.*
+
+# Datasets (large files)
+data/
+datasets/
+*.csv
+*.tsv
+*.zip
+*.tar.gz
+*.pickle
+*.pkl
+*.npy
+*.npz
+
+# Experiment tracking
+mlruns/
+wandb/
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+
+# =========================
+# Cache
+# =========================
+.cache/
+.pytest_cache/
+.mypy_cache/

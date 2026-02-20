@@ -16,9 +16,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
+    "amqplib": "^0.10.9",
+    "axios": "^1.13.5",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "fs-extra": "^11.1.1",
     "gtts": "^0.2.1"
   },
@@ -26,4 +28,3 @@
     "nodemon": "^3.0.1"
   }
 }
-
