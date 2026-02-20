@@ -1,0 +1,6 @@
+tensorflow==2.15.0
+numpy==1.26.4
+pymongo==4.6.1
+scikit-learn==1.4.0
+scipy==1.11.4
+h5py==3.10.0
