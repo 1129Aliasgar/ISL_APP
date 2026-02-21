@@ -1,20 +1,23 @@
-# Use official Node image
-FROM node:18-alpine
+FROM node:18-bullseye-slim AS node_runtime
 
-# Create app directory
+FROM python:3.10-slim
+
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy Node.js + npm from official node image (stable, avoids apt repo issues).
+COPY --from=node_runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=node_runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-# Install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy all source files
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Expose app port
 EXPOSE 5000
 
-# Start app
 CMD ["npm", "start"]

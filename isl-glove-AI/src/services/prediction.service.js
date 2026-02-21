@@ -1,12 +1,22 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const predictGesture = (sensorData) => {
   return new Promise((resolve, reject) => {
 
     const projectRoot = process.cwd();
 
-    const pythonPath = path.join(projectRoot, 'venv', 'Scripts', 'python.exe');
+    const windowsVenvPython = path.join(projectRoot, 'venv', 'Scripts', 'python.exe');
+    const unixVenvPython = path.join(projectRoot, 'venv', 'bin', 'python');
+
+    // Prefer local project venv for non-container runs.
+    // Fall back to env-provided interpreter (used by Docker compose), then system python.
+    const pythonPath = (fs.existsSync(windowsVenvPython) ? windowsVenvPython : null)
+      || (fs.existsSync(unixVenvPython) ? unixVenvPython : null)
+      || process.env.PYTHON_PATH
+      || 'python3';
+
     const scriptPath = path.join(projectRoot, 'ml', 'predict.py');
 
     const python = spawn(pythonPath, [

@@ -11,14 +11,6 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
-  mongodb:
-    image: mongo:6
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-
   backend:
     build:
       context: ./backend
@@ -29,21 +21,24 @@ services:
     depends_on:
       - rabbitmq
     environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      PORT: 8000
+      RABBIT_MQ: amqp://guest:guest@rabbitmq:5672
+      QUEUE_NAME: letter_queue
 
-  backend-ml:
+  isl-server:
     build:
       context: ./isl-glove-AI
       dockerfile: Dockerfile
-    container_name: backend-ml
+    container_name: isl-server
     ports:
       - "5000:5000"
     depends_on:
       - rabbitmq
-      - mongodb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      PORT: 5000
+      RABBIT_MQ: amqp://guest:guest@rabbitmq:5672
+      QUEUE_NAME: letter_queue
       MONGO_URI: mongodb://host.docker.internal:27017/isl_glove
-
-volumes:
-  mongo-data:
+      PYTHON_PATH: python
