@@ -1,16 +1,18 @@
 # ISL Glove AI System
 
-```markdown
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
+
 ![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?logo=docker&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?logo=mongodb&logoColor=white)
+
 ![Flutter](https://img.shields.io/badge/Flutter-Framework-02569B?logo=flutter&logoColor=white)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-ML-FF6F00?logo=tensorflow&logoColor=white)
+
 ![Traefik](https://img.shields.io/badge/Traefik-Proxy-24A1C1?logo=traefikproxy&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Message_Broker-FF6600?logo=rabbitmq&logoColor=white)
+
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-```
 
 ## Table of Contents
 
@@ -43,7 +45,7 @@ The project includes:
 2. **Text-to-Speech (TTS) Backend – Node.js**
 3. **ISL Glove AI Backend – Node.js + Python (Machine Learning)**
 
-```mermaid
+```
 graph LR
 A[ ESP32 Glove ] --> B [Node Isl Glove AI Backend ]
 B --> C[ MongoDB Service ]
