@@ -1,6 +1,12 @@
 services:
   backend:
     build: ./backend
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -19,6 +25,12 @@ services:
 
   isl-server:
     build: ./isl-glove-AI
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
     depends_on:
       rabbitmq:
         condition: service_healthy
