@@ -1,9 +1,13 @@
-version: "3.9"
-
 services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     ports:
       - "5672:5672" # RabbitMQ
       - "15672:15672" # RabbitMQ dashboard
@@ -19,11 +23,12 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     environment:
       PORT: 8000
-      RABBIT_MQ: amqp://guest:guest@rabbitmq:5672
-      QUEUE_NAME: letter_queue
+      RABBIT_MQ: ${RABBIT_MQ:-amqp://guest:guest@rabbitmq:5672}
+      QUEUE_NAME: ${QUEUE_NAME:-letter_queue}
 
   isl-server:
     build:
@@ -33,12 +38,17 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      - rabbitmq
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      rabbitmq:
+        condition: service_healthy
     environment:
       PORT: 5000
-      RABBIT_MQ: amqp://guest:guest@rabbitmq:5672
-      QUEUE_NAME: letter_queue
-      MONGO_URI: mongodb://host.docker.internal:27017/isl_glove
-      PYTHON_PATH: python
+      RABBIT_MQ: ${RABBIT_MQ:-amqp://guest:guest@rabbitmq:5672}
+      QUEUE_NAME: ${QUEUE_NAME:-letter_queue}
+      MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017/isl_glove}
+      PYTHON_PATH: ${PYTHON_PATH:-python}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  project-network:
+    external: true

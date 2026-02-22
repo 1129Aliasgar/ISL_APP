@@ -4,8 +4,17 @@ const fs = require('fs');
 
 const predictGesture = (sensorData) => {
   return new Promise((resolve, reject) => {
-
     const projectRoot = process.cwd();
+    const mlDir = path.join(projectRoot, 'ml');
+    const requiredArtifacts = ['gesture_model.h5', 'normalizer.npz', 'labels.json'];
+    const missingArtifacts = requiredArtifacts.filter((name) => !fs.existsSync(path.join(mlDir, name)));
+
+    if (missingArtifacts.length > 0) {
+      return reject(
+        `Missing ML artifacts in /app/ml: ${missingArtifacts.join(', ')}. ` +
+        'Generate/copy model files before calling /api/predict.'
+      );
+    }
 
     const windowsVenvPython = path.join(projectRoot, 'venv', 'Scripts', 'python.exe');
     const unixVenvPython = path.join(projectRoot, 'venv', 'bin', 'python');

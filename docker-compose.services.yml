@@ -1,0 +1,74 @@
+services:
+  backend:
+    build: ./backend
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: ${BACKEND_PORT:-8000}
+      RABBIT_MQ: ${RABBIT_MQ:-amqp://guest:guest@rabbitmq:5672}
+      QUEUE_NAME: ${QUEUE_NAME:-letter_queue}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api/speak`) || PathPrefix(`/api/text-to-speech`) || PathPrefix(`/api/voices`) || PathPrefix(`/api/audio`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.priority=20"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    networks:
+      - project-network
+
+  isl-server:
+    build: ./isl-glove-AI
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: ${ISL_PORT:-5000}
+      RABBIT_MQ: ${RABBIT_MQ:-amqp://guest:guest@rabbitmq:5672}
+      QUEUE_NAME: ${QUEUE_NAME:-letter_queue}
+      # Default points to host MongoDB; override with hosted URI in root .env
+      MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017/isl_glove}
+      PYTHON_PATH: ${PYTHON_PATH:-python}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai.rule=PathPrefix(`/api/predict`) || PathPrefix(`/api/sensors`)"
+      - "traefik.http.routers.ai.entrypoints=web"
+      - "traefik.http.routers.ai.priority=20"
+      - "traefik.http.services.ai.loadbalancer.server.port=5000"
+    networks:
+      - project-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - project-network
+
+  dozzle:
+    image: amir20/dozzle:latest
+    environment:
+      - DOZZLE_BASE=/api/logs
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.logs.rule=PathPrefix(`/api/logs`)"
+      - "traefik.http.routers.logs.entrypoints=web"
+      - "traefik.http.routers.logs.priority=30"
+      - "traefik.http.services.logs.loadbalancer.server.port=8080"
+    networks:
+      - project-network
+
+networks:
+  project-network:
+    external: true

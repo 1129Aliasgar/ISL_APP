@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      # - "traefik.http.routers.backend.entrypoints=websecure"
+      # - "traefik.http.routers.backend.tls.certresolver=le"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    networks:
+      - project-network
+
+  isl-server:
+    build: ./isl-glove-ai
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.ai.entrypoints=web"
+      # - "traefik.http.routers.ai.entrypoints=websecure"
+      # - "traefik.http.routers.ai.tls.certresolver=le"
+      - "traefik.http.services.ai.loadbalancer.server.port=5000"
+    networks:
+      - project-network
+
+  mongodb:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - project-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    networks:
+      - project-network
+
+volumes:
+  mongo_data:
+
+networks:
+  project-network:
+    external: true

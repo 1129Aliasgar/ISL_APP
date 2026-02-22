@@ -32,9 +32,11 @@ const predict = async (req, res, next) => {
     });
   } catch (err) {
     console.error("PREDICT ERROR:", err); 
-    return res.status(500).json({
+    const message = typeof err === 'string' ? err : err.message || String(err);
+    const statusCode = message.includes('Missing ML artifacts') ? 503 : 500;
+    return res.status(statusCode).json({
       success: false,
-      error: typeof err === 'string' ? err : err.message || err
+      error: message
     });
   }
 };
