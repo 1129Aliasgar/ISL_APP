@@ -6,12 +6,17 @@ const predictGesture = (sensorData) => {
   return new Promise((resolve, reject) => {
     const projectRoot = process.cwd();
     const mlDir = path.join(projectRoot, 'ml');
-    const requiredArtifacts = ['gesture_model.h5', 'normalizer.npz', 'labels.json'];
+    const hasTflite = fs.existsSync(path.join(mlDir, 'model.tflite'));
+    const hasKeras = fs.existsSync(path.join(mlDir, 'gesture_model.h5'));
+    const requiredArtifacts = ['normalizer.npz', 'labels.json'];
     const missingArtifacts = requiredArtifacts.filter((name) => !fs.existsSync(path.join(mlDir, name)));
 
-    if (missingArtifacts.length > 0) {
+    if (missingArtifacts.length > 0 || (!hasTflite && !hasKeras)) {
+      const modelMessage = hasTflite || hasKeras
+        ? ''
+        : 'Missing model file: expected ml/model.tflite or ml/gesture_model.h5. ';
       return reject(
-        `Missing ML artifacts in /app/ml: ${missingArtifacts.join(', ')}. ` +
+        `${modelMessage}Missing ML artifacts in /app/ml: ${missingArtifacts.join(', ') || 'none'}. ` +
         'Generate/copy model files before calling /api/predict.'
       );
     }

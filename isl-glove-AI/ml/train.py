@@ -6,12 +6,11 @@ import tensorflow as tf
 from pymongo import MongoClient
 
 from autoencoder import build_autoencoder
-from classifier import ALPHABET_LABELS
 from classifier import build_classifier
 from export_tflite import export_tflite
 
 
-DB_URI = "mongodb://127.0.0.1:27017/"
+DB_URI = "mongodb://host.docker.internal:27017/"
 DB_NAME = "isl_glove"
 COLLECTION_NAME = "sensorwindows"
 TIMESTEPS = 50
@@ -26,6 +25,30 @@ CLASSIFIER_MODEL_PATH = BASE_DIR / "gesture_model.h5"
 TFLITE_PATH = BASE_DIR / "model.tflite"
 
 
+def resize_window(window: np.ndarray, target_len: int = TIMESTEPS) -> np.ndarray:
+    """Resize variable-length window to fixed timestep count."""
+    if window.ndim != 2 or window.shape[1] != FEATURES:
+        raise ValueError(f"Each sample must have shape (n, {FEATURES}), got {window.shape}")
+
+    length = window.shape[0]
+    if length == target_len:
+        return window.astype(np.float32)
+    if length <= 0:
+        raise ValueError("Window must contain at least one timestep")
+    if length < target_len:
+        pad_count = target_len - length
+        pad_rows = np.repeat(window[-1:, :], pad_count, axis=0)
+        return np.concatenate([window, pad_rows], axis=0).astype(np.float32)
+
+    src_idx = np.linspace(0, length - 1, num=length, dtype=np.float32)
+    dst_idx = np.linspace(0, length - 1, num=target_len, dtype=np.float32)
+    resized = np.stack(
+        [np.interp(dst_idx, src_idx, window[:, feature_idx]) for feature_idx in range(FEATURES)],
+        axis=1,
+    )
+    return resized.astype(np.float32)
+
+
 def load_labeled_windows():
     client = MongoClient(DB_URI)
     collection = client[DB_NAME][COLLECTION_NAME]
@@ -34,15 +57,16 @@ def load_labeled_windows():
     if not documents:
         raise ValueError("No labeled data found in MongoDB")
 
-    X = np.array([doc["data"] for doc in documents], dtype=np.float32)
-    y_raw = np.array([str(doc["gestureLabel"]).strip().upper() for doc in documents])
+    windows = []
+    labels = []
+    for doc in documents:
+        raw_window = np.array(doc["data"], dtype=np.float32)
+        resized_window = resize_window(raw_window, TIMESTEPS)
+        windows.append(resized_window)
+        labels.append(str(doc["gestureLabel"]).strip())
 
-    if X.ndim != 3:
-        raise ValueError(f"Expected input shape (samples, timesteps, features), got {X.shape}")
-    if X.shape[1] != TIMESTEPS or X.shape[2] != FEATURES:
-        raise ValueError(
-            f"Expected each sample to have shape ({TIMESTEPS}, {FEATURES}), got {X.shape[1:]}"
-        )
+    X = np.array(windows, dtype=np.float32)
+    y_raw = np.array(labels, dtype=object)
 
     return X, y_raw
 
@@ -63,19 +87,19 @@ def fit_and_save_normalizer(X):
 
 
 def encode_labels(y_raw):
-    unsupported = sorted({label for label in y_raw if label not in ALPHABET_LABELS})
-    if unsupported:
-        raise ValueError(f"Unsupported labels found: {unsupported}. Allowed labels: A-Z")
+    labels = sorted({label for label in y_raw})
+    if not labels:
+        raise ValueError("No labels found in dataset")
 
-    label_to_idx = {label: idx for idx, label in enumerate(ALPHABET_LABELS)}
+    label_to_idx = {label: idx for idx, label in enumerate(labels)}
     y_idx = np.array([label_to_idx[label] for label in y_raw], dtype=np.int32)
-    y_one_hot = tf.keras.utils.to_categorical(y_idx, num_classes=len(ALPHABET_LABELS))
+    y_one_hot = tf.keras.utils.to_categorical(y_idx, num_classes=len(labels))
 
     with open(LABELS_PATH, "w", encoding="utf-8") as f:
-        json.dump({"labels": ALPHABET_LABELS}, f, indent=2)
+        json.dump({"labels": labels}, f, indent=2)
     print(f"Saved label map to {LABELS_PATH.name}")
 
-    return y_one_hot, len(ALPHABET_LABELS)
+    return y_one_hot, len(labels)
 
 
 def train():

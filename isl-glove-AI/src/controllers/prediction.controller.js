@@ -1,6 +1,6 @@
 const predictionService = require('../services/prediction.service');
 const { publishToQueue } = require('../utils/rabbit.client')
-const { addToBuffer } = require('../utils/sensorBuffer');
+const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuffer');
 
 const predict = async (req, res, next) => {
   try {
@@ -10,17 +10,26 @@ const predict = async (req, res, next) => {
       const { flex, accel, gyro } = req.body.sensors;
       const reading = [...flex, ...accel, ...gyro];
       const readingTimestamp = req.body.timestamp ? new Date(req.body.timestamp) : new Date();
+      const end = Boolean(req.body.end);
 
-      const bufferedWindow = addToBuffer(req.body.deviceId, reading, readingTimestamp);
-      if (!bufferedWindow) {
+      addToBuffer(req.body.deviceId, reading, readingTimestamp);
+      if (!end) {
         return res.status(202).json({
           success: true,
           buffered: true,
-          message: 'Reading buffered. Waiting for 50 timesteps.',
+          message: 'Reading buffered. Send end=true to run prediction for this sequence.',
+          bufferedCount: getBufferSize(req.body.deviceId),
         });
       }
 
-      predictionInput = bufferedWindow.window;
+      const flushed = flushBuffer(req.body.deviceId);
+      if (!flushed) {
+        return res.status(400).json({
+          success: false,
+          error: "No buffered data found for prediction"
+        });
+      }
+      predictionInput = flushed.window;
     }
 
     const result = await predictionService.predictGesture(predictionInput);
