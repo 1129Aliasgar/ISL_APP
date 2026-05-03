@@ -4,7 +4,7 @@ const sensorSchema = Joi.object({
   deviceId: Joi.string().required(),
   timestamp: Joi.date().iso().required(),
   end: Joi.boolean().optional().default(false),
-
+  gestureLabel: Joi.string().optional().default(null),
   sensors: Joi.object({
     flex: Joi.array().items(Joi.number()).length(5).required(),
     accel: Joi.array().items(Joi.number()).length(3).required(),

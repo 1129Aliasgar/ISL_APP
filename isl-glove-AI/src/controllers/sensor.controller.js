@@ -3,7 +3,7 @@ const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuff
 
 const createSensorData = async (req, res, next) => {
   try {
-    const { deviceId, sensors, timestamp, end = false } = req.body;
+    const { deviceId, sensors, timestamp, end = false , gestureLabel = null } = req.body;
 
     if (!deviceId || !sensors) {
       return res.status(400).json({
@@ -32,10 +32,10 @@ const createSensorData = async (req, res, next) => {
     const reading = [
       ...flex,
       ...accel,
-      ...gyro,
+      ...gyro
     ];
 
-    addToBuffer(deviceId, reading, readingTimestamp);
+    addToBuffer(deviceId, reading, readingTimestamp );
 
     if (end) {
       const flushed = flushBuffer(deviceId);
@@ -50,7 +50,8 @@ const createSensorData = async (req, res, next) => {
       await sensorService.saveSensorWindow({
         deviceId,
         windowStart,
-        data: window
+        data: window,
+        gestureLabel
       });
 
       return res.status(201).json({
