@@ -4,8 +4,8 @@ class AppTheme {
   AppTheme._();
 
   static ThemeData get dark {
-    const Color primary = Color(0xFF00E5FF);
-    const Color secondary = Color(0xFF7C4DFF);
+    const Color primary = Color(0xFF7C4DFF);
+    const Color secondary = Color(0xFFB388FF);
     const Color surface = Color(0xFF121212);
     const Color background = Color(0xFF0A0A0A);
     const Color onPrimary = Colors.black;

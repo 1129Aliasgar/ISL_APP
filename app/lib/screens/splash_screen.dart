@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:g_one/services/auth_service.dart';
 import 'package:g_one/utils/constants.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,9 +22,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _controller.forward();
 
-    Timer(AppConstants.splashDelay, () {
+    Timer(AppConstants.splashDelay, () async {
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppConstants.routeHome);
+      final loggedIn = await AuthService.isLoggedIn();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(loggedIn ? AppConstants.routeHome : AppConstants.routeLogin);
     });
   }
 
@@ -45,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               child: ShaderMask(
                 shaderCallback: (Rect bounds) {
                   return const LinearGradient(
-                    colors: [Color(0xFF00E5FF), Color(0xFF7C4DFF)],
+                    colors: [Color(0xFF7C4DFF), Color(0xFFB388FF)],
                   ).createShader(bounds);
                 },
                 child: Text(

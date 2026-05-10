@@ -1,0 +1,13 @@
+services:
+  flutter-builder:
+    build: ./app
+    container_name: flutter-builder
+    environment:
+      - API_BASE_URL=${API_BASE_URL:-https://burthensome-emerald-libidinally.ngrok-free.dev/api}
+    volumes:
+      - ./app:/workspace
+      - flutter_pub_cache:/root/.pub-cache
+    command: sh -lc "flutter build apk --release --dart-define=API_BASE_URL=${API_BASE_URL:-https://burthensome-emerald-libidinally.ngrok-free.dev/api}"
+
+volumes:
+  flutter_pub_cache:

@@ -3,7 +3,7 @@ const Joi = require('joi');
 const FEATURES = 11;
 
 const fullWindowSchema = Joi.object({
-  deviceId: Joi.string().optional(),
+  deviceId: Joi.string().required(),
   timestamp: Joi.date().iso().optional(),
   end: Joi.boolean().optional(),
   data: Joi.array()

@@ -1,0 +1,28 @@
+# MongoDB on the host (port published to 27017): use host.docker.internal from inside this container.
+# Override if Mongo runs as another container on isl-network: set MONGO_URI accordingly.
+# Example: MONGO_URI=mongodb://mongo:27017/isl_glove
+
+services:
+  isl-backend:
+    build: ./isl-glove-AI
+    container_name: isl-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=development
+      - MONGO_URI=${MONGO_URI:-mongodb://host.docker.internal:27017/isl_glove}
+      - PYTHON_PATH=python
+      - MODEL_PATH=ml/model.tflite
+      - JWT_SECRET=local-dev-jwt-secret
+      - PUBLIC_BASE_URL=http://localhost:5000
+    volumes:
+      - ./isl-glove-AI:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - isl-network
+
+networks:
+  isl-network:
+    external: true

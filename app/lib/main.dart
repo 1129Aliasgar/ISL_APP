@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:g_one/screens/account_screen.dart';
 import 'package:g_one/screens/game_controller_screen.dart';
 import 'package:g_one/screens/home_screen.dart';
+import 'package:g_one/screens/login_screen.dart';
+import 'package:g_one/screens/register_screen.dart';
 import 'package:g_one/screens/settings_screen.dart';
 import 'package:g_one/screens/splash_screen.dart';
 import 'package:g_one/screens/video_calling_screen.dart';
@@ -23,7 +26,10 @@ class GOneApp extends StatelessWidget {
       initialRoute: AppConstants.routeSplash,
       routes: {
         AppConstants.routeSplash: (_) => const SplashScreen(),
+        AppConstants.routeLogin: (_) => const LoginScreen(),
+        AppConstants.routeRegister: (_) => const RegisterScreen(),
         AppConstants.routeHome: (_) => const HomeScreen(),
+        AppConstants.routeAccount: (_) => const AccountScreen(),
         AppConstants.routeGameController: (_) => const GameControllerScreen(),
         AppConstants.routeVideoCalling: (_) => const VideoCallingScreen(),
         AppConstants.routeSettings: (_) => const SettingsScreen(),

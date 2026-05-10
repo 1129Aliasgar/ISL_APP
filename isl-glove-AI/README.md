@@ -2,9 +2,13 @@
 
 AI-powered backend and ML pipeline for Indian Sign Language (ISL) smart glove.
 
----
+## Architecture
 
-#  Overview
+- Single Node backend (`isl-glove-AI`) + MongoDB.
+- ESP32 posts sensor timesteps with `deviceId`.
+- Backend buffers readings per device until `end=true`.
+- On `end=true`, backend predicts gesture and generates speech audio internally.
+- Predict response returns JSON + public `audioUrl`.
 
 This project collects real-time hand gesture data from an ESP32-based glove and:
 
@@ -70,47 +74,45 @@ ESP32 must send data in this format:
   "deviceId": "glove_01",
   "timestamp": "2026-02-20T12:00:00.000Z",
   "sensors": {
-    "flex": [520, 510, 495, 505, 499],
-    "accel": [0.12, 0.04, 9.81],
-    "gyro": [0.01, 0.02, 0.03]
-  }
+    "flex": [0, 189, 0, 16, 0],
+    "accel": [70, 96, 1631],
+    "gyro": [13, 12, 4]
+  },
+  "gestureLabel": "hello",
+  "end": false
 }
 ```
 
-Each request represents **1 timestep**.
-Model features per timestep = **11** (`5 flex + 3 accel + 3 gyro`).
-`timestamp` is accepted for ordering/windowStart and is **not** part of model features.
+When final timestep arrives, send `"end": true`.
 
-Backend collects 50 timesteps to create 1 window.
+## Prediction Behavior
 
----
+- Variable-length sequences are accepted.
+- ML preprocessing resizes every sequence to 50 timesteps:
+  - pad (shorter sequences)
+  - interpolation compress (longer sequences)
+- Labels are dataset-driven from Mongo `gestureLabel` values.
 
-#  MongoDB Schema
+## Local Setup
 
-Each stored window:
+1. Copy `example.env` to `.env`
+2. Install dependencies:
+   - `npm install`
+   - `pip install -r requirements.txt`
+3. Run backend:
+   - `npm run dev`
 
-```json
-{
-  "deviceId": "glove_01",
-  "windowStart": "2026-02-18T18:00:00Z",
-  "data": [
-    [11 features],
-    ...
-    50 timesteps
-  ],
-  "gestureLabel": null
-}
-```
+For Docker local stack:
 
-Shape:
+- `docker compose -f ../docker-compose.local.yml up --build`
 
-```
-(samples, 50, 11)
-```
+## Public Audio URLs
 
----
+Set `PUBLIC_BASE_URL`:
 
-#  ML Architecture
+- localhost: `http://localhost:5000`
+- ngrok: `https://<your-subdomain>.ngrok-free.app`
+- production: your API domain
 
 Model: CNN + GRU
 

@@ -1,6 +1,6 @@
 const predictionService = require('../services/prediction.service');
-const { publishToQueue } = require('../utils/rabbit.client')
 const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuffer');
+const { generateSpeechFile, buildPublicBaseUrl } = require('../services/tts.service');
 
 const predict = async (req, res, next) => {
   try {
@@ -10,7 +10,7 @@ const predict = async (req, res, next) => {
       const { flex, accel, gyro } = req.body.sensors;
       const reading = [...flex, ...accel, ...gyro];
       const readingTimestamp = req.body.timestamp ? new Date(req.body.timestamp) : new Date();
-      const end = Boolean(req.body.end);
+      const end = req.body.end === true || req.body.end === "true";
 
       addToBuffer(req.body.deviceId, reading, readingTimestamp);
       if (!end) {
@@ -33,11 +33,19 @@ const predict = async (req, res, next) => {
     }
 
     const result = await predictionService.predictGesture(predictionInput);
-    await publishToQueue(process.env.QUEUE_NAME, result.character);
+    const deviceId = req.body.deviceId;
+    const { filename } = await generateSpeechFile({
+      text: result.character,
+      deviceId,
+      language: req.body.language || "en",
+    });
+    const baseUrl = buildPublicBaseUrl(req);
+    const audioUrl = `${baseUrl}/api/audio/${filename}?deviceId=${encodeURIComponent(deviceId)}`;
 
     return res.json({
       success: true,
       prediction: result,
+      audioUrl,
     });
   } catch (err) {
     console.error("PREDICT ERROR:", err); 

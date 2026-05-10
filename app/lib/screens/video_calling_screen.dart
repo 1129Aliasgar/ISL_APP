@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:g_one/services/api_service.dart';
-import 'package:g_one/services/settings_service.dart';
 import 'package:g_one/widgets/section_card.dart';
 
 class VideoCallingScreen extends StatefulWidget {
@@ -37,26 +35,10 @@ class _VideoCallingScreenState extends State<VideoCallingScreen> {
     });
 
     try {
-      // Get current settings
-      final settings = await SettingsService.getSettings();
-      
-      final result = await ApiService.speak(
-        text: text,
-        language: settings['language'] as String,
-        pitch: settings['pitch'] as double,
-        volume: settings['volume'] as double,
-        speed: settings['speed'] as double,
-      );
-      
-      if (result['success'] == true) {
-        setState(() {
-          _convertedSpeech = text;
-        });
-      } else {
-        setState(() {
-          _convertedSpeech = 'Error: ${result['message']}';
-        });
-      }
+      // Demo-only screen: prediction + audio now comes from backend glove flow.
+      setState(() {
+        _convertedSpeech = text;
+      });
     } catch (e) {
       setState(() {
         _convertedSpeech = 'Error: ${e.toString()}';

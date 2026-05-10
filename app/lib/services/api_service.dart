@@ -2,74 +2,46 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:g_one/utils/constants.dart';
+import 'package:g_one/services/auth_service.dart';
 
 class ApiService {
   static final AudioPlayer _audioPlayer = AudioPlayer();
 
-  static Future<Map<String, dynamic>> speak({
-    required String text,
-    String? language,
-    double? pitch,
-    double? volume,
-    double? speed,
-    String? voice,
+  static Future<Map<String, dynamic>> predictFromSensors({
+    required String deviceId,
+    required Map<String, dynamic> sensors,
+    required bool end,
+    String? timestamp,
   }) async {
     try {
+      final token = await AuthService.getToken();
       final body = <String, dynamic>{
-        'text': text,
+        'deviceId': deviceId,
+        'sensors': sensors,
+        'end': end,
+        'timestamp': timestamp ?? DateTime.now().toUtc().toIso8601String(),
       };
-
-      if (language != null) body['language'] = language;
-      if (pitch != null) body['pitch'] = pitch;
-      if (volume != null) body['volume'] = volume;
-      if (speed != null) body['speed'] = speed;
-      if (voice != null) body['voice'] = voice;
-
       final response = await http.post(
-        Uri.parse('${AppConstants.baseUrl}${AppConstants.speakEndpoint}'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${AppConstants.baseUrl}${AppConstants.predictEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode(body),
       );
-
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         final result = jsonDecode(response.body) as Map<String, dynamic>;
-        
-        // If audio URL is provided, play it
-        if (result['success'] == true && result['data'] != null) {
-          final data = result['data'] as Map<String, dynamic>;
-          final audioUrl = data['audioUrl'] as String?;
-          
-          if (audioUrl != null) {
-            // Construct full audio URL
-            // audioUrl from backend is like: /api/audio/filename.mp3
-            // baseUrl is like: http://localhost:8000/api or https://your-domain.com/api
-            // We need: http://localhost:8000/api/audio/filename.mp3 or https://your-domain.com/api/audio/filename.mp3
-            String fullAudioUrl;
-            if (audioUrl.startsWith('http://') || audioUrl.startsWith('https://')) {
-              // Already a full URL
-              fullAudioUrl = audioUrl;
-            } else if (audioUrl.startsWith('/')) {
-              // Relative URL - construct from baseUrl
-              final baseUrlWithoutApi = AppConstants.baseUrl.replaceAll('/api', '');
-              fullAudioUrl = '$baseUrlWithoutApi$audioUrl';
-            } else {
-              // Relative path without leading slash
-              final baseUrlWithoutApi = AppConstants.baseUrl.replaceAll('/api', '');
-              fullAudioUrl = '$baseUrlWithoutApi/api/$audioUrl';
-            }
-            
-            await _playAudio(fullAudioUrl, volume ?? 0.8);
-          }
+        final audioUrl = result['audioUrl'] as String?;
+        if (audioUrl != null) {
+          await _playAudio(audioUrl, 0.8);
         }
-        
         return result;
-      } else {
-        final errorBody = jsonDecode(response.body) as Map<String, dynamic>;
-        return {
-          'success': false,
-          'message': errorBody['message'] ?? 'Server error: ${response.statusCode}',
-        };
       }
+      final errorBody = jsonDecode(response.body) as Map<String, dynamic>;
+      return {
+        'success': false,
+        'message': errorBody['message'] ?? errorBody['error'] ?? 'Server error: ${response.statusCode}',
+      };
     } catch (e) {
       return {
         'success': false,
@@ -97,11 +69,6 @@ class ApiService {
     } catch (e) {
       print('Error stopping audio: $e');
     }
-  }
-
-  // Legacy method for backward compatibility
-  static Future<Map<String, dynamic>> textToSpeech(String text) async {
-    return speak(text: text);
   }
 }
 

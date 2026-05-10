@@ -3,7 +3,8 @@ const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuff
 
 const createSensorData = async (req, res, next) => {
   try {
-    const { deviceId, sensors, timestamp, end = false , gestureLabel = null } = req.body;
+    const { deviceId, sensors, timestamp, gestureLabel = null } = req.body;
+    const end = req.body.end === true || req.body.end === "true";
 
     if (!deviceId || !sensors) {
       return res.status(400).json({
