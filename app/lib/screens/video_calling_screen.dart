@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:g_one/widgets/section_card.dart';
 
 class VideoCallingScreen extends StatefulWidget {
-  const VideoCallingScreen({super.key});
+  final bool compact;
+  const VideoCallingScreen({super.key, this.compact = false});
 
   @override
   State<VideoCallingScreen> createState() => _VideoCallingScreenState();
@@ -61,9 +62,7 @@ class _VideoCallingScreenState extends State<VideoCallingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Video Calling')),
-      body: ListView(
+    final content = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           SectionCard(
@@ -150,7 +149,11 @@ class _VideoCallingScreenState extends State<VideoCallingScreen> {
             subtitle: 'In production, gestures will be detected from Bluetooth glove in real-time',
           ),
         ],
-      ),
+    );
+    if (widget.compact) return content;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Video Calling')),
+      body: content,
     );
   }
 }

@@ -15,6 +15,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   String? _error;
 
+  @override
+  void initState() {
+    super.initState();
+    _redirectIfLoggedIn();
+  }
+
+  Future<void> _redirectIfLoggedIn() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!mounted || !loggedIn) return;
+    Navigator.pushReplacementNamed(context, AppConstants.routeHome);
+  }
+
   Future<void> _login() async {
     setState(() {
       _loading = true;

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:g_one/widgets/section_card.dart';
 
 class GameControllerScreen extends StatefulWidget {
-  const GameControllerScreen({super.key});
+  final bool compact;
+  const GameControllerScreen({super.key, this.compact = false});
 
   @override
   State<GameControllerScreen> createState() => _GameControllerScreenState();
@@ -33,9 +34,7 @@ class _GameControllerScreenState extends State<GameControllerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Game Controller')),
-      body: ListView(
+    final content = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           SectionCard(
@@ -120,7 +119,11 @@ class _GameControllerScreenState extends State<GameControllerScreen> {
             ),
           ),
         ],
-      ),
+    );
+    if (widget.compact) return content;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Game Controller')),
+      body: content,
     );
   }
 }

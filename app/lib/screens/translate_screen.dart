@@ -3,7 +3,8 @@ import 'package:g_one/utils/languages.dart';
 import 'package:g_one/widgets/section_card.dart';
 
 class TranslateScreen extends StatefulWidget {
-  const TranslateScreen({super.key});
+  final bool compact;
+  const TranslateScreen({super.key, this.compact = false});
 
   @override
   State<TranslateScreen> createState() => _TranslateScreenState();
@@ -16,9 +17,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Translate')),
-      body: ListView(
+    final content = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           SectionCard(
@@ -51,7 +50,11 @@ class _TranslateScreenState extends State<TranslateScreen> {
             subtitle: 'This is UI only. Bluetooth/AI integration will be added later.',
           ),
         ],
-      ),
+    );
+    if (widget.compact) return content;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Translate')),
+      body: content,
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:g_one/utils/constants.dart';
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _deviceIdKey = 'device_id';
+  static const String _sessionKey = 'is_logged_in';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -18,14 +19,17 @@ class AuthService {
   }
 
   static Future<bool> isLoggedIn() async {
-    final token = await getToken();
-    return token != null && token.isNotEmpty;
+    final prefs = await SharedPreferences.getInstance();
+    final hasSession = prefs.getBool(_sessionKey) ?? false;
+    final token = prefs.getString(_tokenKey);
+    return hasSession && token != null && token.isNotEmpty;
   }
 
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_deviceIdKey);
+    await prefs.setBool(_sessionKey, false);
   }
 
   static Future<Map<String, dynamic>> register({
@@ -79,6 +83,26 @@ class AuthService {
         if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
       }),
     );
+    final result = _handlePlainResponse(response);
+    if (result['success'] == true && result['user'] is Map<String, dynamic>) {
+      final user = result['user'] as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      if (user['deviceId'] != null) {
+        await prefs.setString(_deviceIdKey, user['deviceId'] as String);
+      }
+    }
+    return result;
+  }
+
+  static Future<Map<String, dynamic>> getProfile() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}${AppConstants.profileEndpoint}'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
     return _handlePlainResponse(response);
   }
 
@@ -90,6 +114,7 @@ class AuthService {
       if (token != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_tokenKey, token);
+        await prefs.setBool(_sessionKey, true);
         if (user != null && user['deviceId'] != null) {
           await prefs.setString(_deviceIdKey, user['deviceId'] as String);
         }
