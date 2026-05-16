@@ -1,4 +1,5 @@
 const predictionService = require('../services/prediction.service');
+const predictionResultService = require('../services/predictionResult.service');
 const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuffer');
 const { generateSpeechFile, buildPublicBaseUrl } = require('../services/tts.service');
 
@@ -34,6 +35,12 @@ const predict = async (req, res, next) => {
 
     const result = await predictionService.predictGesture(predictionInput);
     const deviceId = req.body.deviceId;
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        error: "deviceId is required to save and deliver prediction results",
+      });
+    }
     const { filename } = await generateSpeechFile({
       text: result.character,
       deviceId,
@@ -42,10 +49,19 @@ const predict = async (req, res, next) => {
     const baseUrl = buildPublicBaseUrl(req);
     const audioUrl = `${baseUrl}/api/audio/${filename}?deviceId=${encodeURIComponent(deviceId)}`;
 
+    const saved = await predictionResultService.saveLatest({
+      deviceId,
+      prediction: result,
+      audioUrl,
+      audioFilename: filename,
+    });
+
     return res.json({
       success: true,
       prediction: result,
       audioUrl,
+      id: saved._id.toString(),
+      createdAt: saved.createdAt,
     });
   } catch (err) {
     console.error("PREDICT ERROR:", err); 
@@ -58,4 +74,28 @@ const predict = async (req, res, next) => {
   }
 };
 
-module.exports = { predict };
+const getLatest = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    if (!deviceId) {
+      return res.status(400).json({ success: false, message: "deviceId is required" });
+    }
+
+    const latest = await predictionResultService.getLatest(deviceId);
+    if (!latest) {
+      return res.status(404).json({ success: false, message: "No predictions yet for this device" });
+    }
+
+    return res.json({
+      success: true,
+      id: latest._id.toString(),
+      prediction: latest.prediction,
+      audioUrl: latest.audioUrl,
+      createdAt: latest.createdAt,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+module.exports = { predict, getLatest };

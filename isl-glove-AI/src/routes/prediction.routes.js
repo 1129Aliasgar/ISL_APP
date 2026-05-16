@@ -5,5 +5,6 @@ const validate = require('../middlewares/validate.middleware');
 const predictionSchema = require('../validators/prediction.validator');
 
 router.post('/', validate(predictionSchema), predictionController.predict);
+router.get('/latest/:deviceId', predictionController.getLatest);
 
 module.exports = router;

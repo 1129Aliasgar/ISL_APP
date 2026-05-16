@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:g_one/screens/account_screen.dart';
 import 'package:g_one/screens/game_controller_screen.dart';
@@ -7,6 +8,7 @@ import 'package:g_one/screens/video_calling_screen.dart';
 import 'package:g_one/services/api_service.dart';
 import 'package:g_one/services/auth_service.dart';
 import 'package:g_one/widgets/section_card.dart';
+import 'package:g_one/widgets/voice_assistant_orb.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,56 +19,82 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
-  bool _isLoading = false;
-  bool _isPlaying = false;
-  String _statusMessage = 'Waiting for glove gesture...';
+  bool _isSpeaking = false;
+  String _statusMessage = 'Listening for glove gestures...';
   String _lastPrediction = '—';
   String? _deviceId;
+  String? _lastPredictionId;
+  Timer? _pollTimer;
+  StreamSubscription<bool>? _speakingSub;
 
   @override
   void initState() {
     super.initState();
-    _refreshDeviceId();
+    _initSession();
+  }
+
+  Future<void> _initSession() async {
+    await _refreshDeviceId();
+    _speakingSub = ApiService.speakingStream.listen((speaking) {
+      if (!mounted) return;
+      setState(() => _isSpeaking = speaking);
+    });
+    _startPolling();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollLatestPrediction());
+    _pollLatestPrediction();
+  }
+
+  Future<void> _pollLatestPrediction() async {
+    final deviceId = _deviceId;
+    if (deviceId == null || deviceId.isEmpty) return;
+
+    final result = await ApiService.fetchLatestPrediction(deviceId);
+    if (!mounted) return;
+
+    if (result['notFound'] == true) {
+      setState(() {
+        _statusMessage = 'Waiting for first gesture from glove...';
+      });
+      return;
+    }
+
+    if (result['success'] != true) {
+      setState(() {
+        _statusMessage = result['message']?.toString() ?? 'Could not fetch prediction';
+      });
+      return;
+    }
+
+    final id = result['id']?.toString();
+    if (id == null || id == _lastPredictionId) return;
+
+    final prediction = result['prediction'] as Map<String, dynamic>?;
+    final character = prediction?['character']?.toString() ?? '—';
+    final audioUrl = result['audioUrl'] as String?;
+
+    setState(() {
+      _lastPredictionId = id;
+      _lastPrediction = character;
+      _statusMessage = 'New prediction received';
+    });
+
+    if (audioUrl != null && audioUrl.isNotEmpty) {
+      final played = await ApiService.playAudioFromUrl(audioUrl);
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = played ? 'Playing: $character' : 'Prediction ready (audio failed)';
+      });
+    }
   }
 
   Future<void> _refreshDeviceId() async {
     final value = await AuthService.getDeviceId();
     if (!mounted) return;
     setState(() => _deviceId = value);
-  }
-
-  Future<void> _sendDemoGesture() async {
-    final deviceId = _deviceId;
-    if (deviceId == null || deviceId.isEmpty) return;
-    setState(() {
-      _isLoading = true;
-      _statusMessage = 'Processing glove sequence...';
-    });
-
-    try {
-      final result = await ApiService.predictFromSensors(
-        deviceId: deviceId,
-        sensors: const {
-          "flex": [0, 189, 0, 16, 0],
-          "accel": [70, 96, 1631],
-          "gyro": [13, 12, 4]
-        },
-        end: true,
-      );
-      setState(() {
-        _lastPrediction = (result['prediction']?['character'] ?? '—').toString();
-        _statusMessage = result['success'] == true
-            ? 'Prediction received and audio played'
-            : 'Error: ${result['message'] ?? 'Unknown error'}';
-        _isPlaying = result['success'] == true;
-      });
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'Error: ${e.toString()}';
-      });
-    } finally {
-      setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _openProfile() async {
@@ -84,30 +112,39 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _speakingSub?.cancel();
+    super.dispose();
+  }
+
   Widget _buildHomeTab(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        SectionCard(
-          title: 'Audio Wave',
-          subtitle: _isPlaying ? 'Playing generated speech' : 'Ready',
-          child: SizedBox(
-            height: 64,
-            child: _WaveVisualizer(isActive: _isPlaying || _isLoading),
+        const SizedBox(height: 8),
+        Center(
+          child: VoiceAssistantOrb(
+            isSpeaking: _isSpeaking,
+            size: 240,
           ),
         ),
+        const SizedBox(height: 24),
         SectionCard(
-          title: 'Device',
-          subtitle: _deviceId == null ? 'No device found' : 'Connected device: $_deviceId',
+          title: 'Live Translation',
+          subtitle: _deviceId == null ? 'No device linked' : 'Device: $_deviceId',
         ),
         SectionCard(
-          title: 'Translation',
-          subtitle: 'Latest prediction output',
+          title: 'Recognized Gesture',
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               _lastPrediction,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: const Color(0xFFFF4FD8),
+                    fontWeight: FontWeight.w700,
+                  ),
               textAlign: TextAlign.center,
             ),
           ),
@@ -115,24 +152,9 @@ class _HomeScreenState extends State<HomeScreen> {
         SectionCard(
           title: 'Status',
           subtitle: _statusMessage,
-          trailing: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.info_outline),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _sendDemoGesture,
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Trigger Prediction (Demo)'),
+          trailing: _isSpeaking
+              ? const Icon(Icons.graphic_eq, color: Color(0xFFFF4FD8))
+              : const Icon(Icons.hearing_outlined),
         ),
       ],
     );
@@ -150,13 +172,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final avatarText = ((_deviceId ?? 'U').isNotEmpty ? (_deviceId ?? 'U')[0] : 'U').toUpperCase();
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0A0614),
       appBar: AppBar(
-        title: const Text('Live Translation'),
+        title: const Text('G-ONE'),
         leading: IconButton(
           onPressed: _openProfile,
           icon: CircleAvatar(
             radius: 14,
-            child: Text(avatarText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            backgroundColor: const Color(0xFF7B61FF),
+            child: Text(
+              avatarText,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+            ),
           ),
         ),
         actions: [
@@ -171,6 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: _selectedTab,
         onTap: (value) => setState(() => _selectedTab = value),
         type: BottomNavigationBarType.fixed,
+        backgroundColor: const Color(0xFF120A1F),
+        selectedItemColor: const Color(0xFFFF4FD8),
+        unselectedItemColor: Colors.white54,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.sports_esports_rounded), label: 'Gaming'),
@@ -181,56 +211,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-class _WaveVisualizer extends StatefulWidget {
-  final bool isActive;
-  const _WaveVisualizer({required this.isActive});
-
-  @override
-  State<_WaveVisualizer> createState() => _WaveVisualizerState();
-}
-
-class _WaveVisualizerState extends State<_WaveVisualizer> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = Theme.of(context).colorScheme.secondary;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(24, (index) {
-            final phase = (_controller.value + index * 0.08) % 1.0;
-            final amp = widget.isActive ? (0.3 + phase * 0.7) : 0.15;
-            final h = 10 + amp * 46;
-            return Container(
-              width: 4,
-              height: h,
-              decoration: BoxDecoration(
-                color: base.withOpacity(widget.isActive ? 0.9 : 0.35),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
-}
-
-
