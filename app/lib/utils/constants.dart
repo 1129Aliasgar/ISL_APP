@@ -2,6 +2,7 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'G-ONE';
+  static const String logoAsset = 'assets/logo.jpeg';
   static const Duration splashDelay = Duration(seconds: 2);
 
   // Routes

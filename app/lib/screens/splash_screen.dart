@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:g_one/services/auth_service.dart';
 import 'package:g_one/utils/constants.dart';
+import 'package:g_one/widgets/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -45,19 +46,22 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           children: [
             ScaleTransition(
               scale: _scale,
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) {
-                  return const LinearGradient(
-                    colors: [Color(0xFF7C4DFF), Color(0xFFB388FF)],
-                  ).createShader(bounds);
-                },
-                child: Text(
-                  AppConstants.appName,
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        color: Colors.white,
-                        letterSpacing: 8,
-                      ),
-                ),
+              child: const AppLogo(size: 140),
+            ),
+            const SizedBox(height: 24),
+            ShaderMask(
+              shaderCallback: (Rect bounds) {
+                return const LinearGradient(
+                  colors: [Color(0xFF7C4DFF), Color(0xFFB388FF)],
+                ).createShader(bounds);
+              },
+              child: Text(
+                AppConstants.appName,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      letterSpacing: 6,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
             ),
             const SizedBox(height: 20),
