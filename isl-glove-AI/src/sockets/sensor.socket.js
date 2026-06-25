@@ -1,5 +1,6 @@
 const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuffer');
 const { runPrediction } = require('../services/predictionPipeline.service');
+const { emitPredictionResult, emitPredictionError } = require('./predictionEmitter');
 
 const sensorRoom = (deviceId) => `sensor:${deviceId}`;
 
@@ -103,14 +104,7 @@ const registerSensorSocket = (io, predictNs) => {
 
         const result = await runPrediction(id, flushed.window);
 
-        predictNs.to(`predict:${id}`).emit('prediction:result', {
-          deviceId: id,
-          text: result.character,
-          character: result.character,
-          confidence: result.confidence,
-          probabilities: result.probabilities,
-          timestamp: new Date().toISOString(),
-        });
+        emitPredictionResult(id, result);
 
         socket.emit('stream:completed', {
           deviceId: id,
@@ -118,10 +112,7 @@ const registerSensorSocket = (io, predictNs) => {
         });
       } catch (err) {
         const message = typeof err === 'string' ? err : err.message || String(err);
-        predictNs.to(`predict:${id}`).emit('prediction:error', {
-          deviceId: id,
-          message,
-        });
+        emitPredictionError(id, message);
         socket.emit('error', { message });
       }
     });

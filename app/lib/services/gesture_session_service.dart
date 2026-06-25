@@ -9,6 +9,7 @@ enum GestureSessionState {
   disconnected,
   connecting,
   connected,
+  capturing,
   processing,
   speaking,
 }
@@ -23,11 +24,15 @@ class GestureSessionService {
       StreamController<String>.broadcast();
   static final StreamController<String> _lastPredictionController =
       StreamController<String>.broadcast();
+  static final StreamController<String?> _pendingGestureController =
+      StreamController<String?>.broadcast();
 
   static Stream<GestureSessionState> get stateStream => _stateController.stream;
   static Stream<String> get statusStream => _statusController.stream;
   static Stream<String> get lastPredictionStream =>
       _lastPredictionController.stream;
+  static Stream<String?> get pendingGestureStream =>
+      _pendingGestureController.stream;
   static Stream<String> get cameraGestureStream => _camera.gestureStream;
   static CameraYoloService get camera => _camera;
 
@@ -37,9 +42,14 @@ class GestureSessionService {
   static StreamSubscription<String>? _socketStatusSub;
   static StreamSubscription<String>? _socketErrorSub;
   static bool _busy = false;
+  static bool _captureActive = false;
+  static String? _pendingGesture;
+  static int _connectionRefs = 0;
 
   static GestureSessionState get state => _state;
   static bool get isConnected => _state != GestureSessionState.disconnected;
+  static bool get isCapturing => _captureActive;
+  static String? get pendingGesture => _pendingGesture;
 
   static void _setState(GestureSessionState next, String status) {
     _state = next;
@@ -47,14 +57,18 @@ class GestureSessionService {
     _statusController.add(status);
   }
 
-  static Future<bool> connect({bool showCameraPreview = false}) async {
+  static Future<bool> connect({
+    bool showCameraPreview = false,
+    bool useFrontCamera = true,
+  }) async {
     if (_state == GestureSessionState.connecting) {
       return false;
     }
 
     if (isConnected) {
-      if (showCameraPreview && !_camera.isRunning) {
-        await _camera.start(useFrontCamera: true);
+      _connectionRefs++;
+      if (showCameraPreview) {
+        await _camera.start(useFrontCamera: useFrontCamera, startPreview: true);
       }
       return true;
     }
@@ -73,7 +87,10 @@ class GestureSessionService {
       return false;
     }
 
-    final cameraOk = await _camera.start(useFrontCamera: showCameraPreview);
+    final cameraOk = await _camera.start(
+      useFrontCamera: useFrontCamera,
+      startPreview: showCameraPreview,
+    );
     if (!cameraOk) {
       await PredictSocketService.disconnect();
       _setState(GestureSessionState.disconnected, 'Could not start camera');
@@ -95,20 +112,36 @@ class GestureSessionService {
     _socketErrorSub = PredictSocketService.errorStream.listen((error) {
       _busy = false;
       if (isConnected) {
-        _setState(GestureSessionState.connected, error);
+        _setState(
+          _captureActive ? GestureSessionState.capturing : GestureSessionState.connected,
+          error,
+        );
       } else {
         _statusController.add(error);
       }
     });
 
+    _connectionRefs = 1;
     _setState(
       GestureSessionState.connected,
-      showCameraPreview ? 'Connected · Camera active' : 'Connected · Camera active in background',
+      showCameraPreview
+          ? 'Connected · Camera active'
+          : 'Connected · Front camera in background',
     );
     return true;
   }
 
-  static Future<void> disconnect() async {
+  static Future<void> disconnect({bool force = false}) async {
+    if (!force && _connectionRefs > 1) {
+      _connectionRefs--;
+      return;
+    }
+
+    _connectionRefs = 0;
+    _captureActive = false;
+    _pendingGesture = null;
+    _pendingGestureController.add(null);
+
     await _predictionSub?.cancel();
     await _cameraGestureSub?.cancel();
     await _socketStatusSub?.cancel();
@@ -125,16 +158,75 @@ class GestureSessionService {
     _setState(GestureSessionState.disconnected, 'Disconnected');
   }
 
-  static Future<void> submitGesture(String gesture) async {
+  static Future<bool> flipCamera() async {
+    if (!isConnected) return false;
+    return _camera.flipCamera();
+  }
+
+  static void startCapture() {
     if (!isConnected) return;
-    await _camera.submitGesture(gesture);
+    _captureActive = true;
+    _pendingGesture = null;
+    _pendingGestureController.add(null);
+    _setState(GestureSessionState.capturing, 'Capture started · perform gesture');
+  }
+
+  static Future<void> selectGesture(String gesture) async {
+    if (!isConnected) return;
+
+    final normalized = gesture.trim().toUpperCase();
+    if (normalized.isEmpty) return;
+
+    if (_captureActive) {
+      _pendingGesture = normalized;
+      _pendingGestureController.add(normalized);
+      _setState(
+        GestureSessionState.capturing,
+        'Gesture selected: $normalized · press End to send',
+      );
+      return;
+    }
+
+    await _camera.submitGesture(normalized, force: true);
+  }
+
+  static Future<void> endCapture() async {
+    if (!isConnected || !_captureActive) return;
+
+    _captureActive = false;
+
+    if (_pendingGesture == null || _pendingGesture!.isEmpty) {
+      _setState(GestureSessionState.connected, 'No gesture captured · try again');
+      return;
+    }
+
+    await _sendGestureToDevice(_pendingGesture!);
+    _pendingGesture = null;
+    _pendingGestureController.add(null);
   }
 
   static Future<void> _onGestureDetected(String gesture) async {
-    if (!isConnected || _busy) return;
+    if (!isConnected) return;
+
+    if (_captureActive) {
+      _pendingGesture = gesture;
+      _pendingGestureController.add(gesture);
+      _setState(
+        GestureSessionState.capturing,
+        'Detected $gesture · press End to send',
+      );
+      return;
+    }
+
+    if (_busy) return;
+    await _sendGestureToDevice(gesture);
+  }
+
+  static Future<void> _sendGestureToDevice(String gesture) async {
+    if (_busy) return;
 
     _busy = true;
-    _setState(GestureSessionState.processing, 'Detected $gesture · sending to gesture device...');
+    _setState(GestureSessionState.processing, 'Sending $gesture to gesture device...');
 
     final deviceId = await AuthService.getDeviceId();
     if (deviceId == null || deviceId.isEmpty) {
@@ -173,7 +265,10 @@ class GestureSessionService {
 
     _busy = false;
     if (isConnected) {
-      _setState(GestureSessionState.connected, 'Listening for gestures...');
+      _setState(
+        _captureActive ? GestureSessionState.capturing : GestureSessionState.connected,
+        'Listening for gestures...',
+      );
     }
   }
 }

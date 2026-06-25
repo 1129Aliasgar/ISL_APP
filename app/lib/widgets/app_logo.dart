@@ -15,6 +15,22 @@ class AppLogo extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          return Container(
+            width: size,
+            height: size,
+            color: const Color(0xFF7B61FF),
+            alignment: Alignment.center,
+            child: Text(
+              'G',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: size * 0.45,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

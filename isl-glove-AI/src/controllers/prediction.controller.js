@@ -1,6 +1,10 @@
 const predictionResultService = require('../services/predictionResult.service');
 const { addToBuffer, flushBuffer, getBufferSize } = require('../utils/sensorBuffer');
 const { runPrediction } = require('../services/predictionPipeline.service');
+const {
+  emitPredictionResult,
+  emitPredictionError,
+} = require('../sockets/predictionEmitter');
 
 const predict = async (req, res, next) => {
   try {
@@ -43,6 +47,8 @@ const predict = async (req, res, next) => {
     const result = await runPrediction(deviceId, predictionInput);
     const saved = await predictionResultService.getLatest(deviceId);
 
+    emitPredictionResult(deviceId, result);
+
     return res.json({
       success: true,
       prediction: result,
@@ -52,6 +58,9 @@ const predict = async (req, res, next) => {
   } catch (err) {
     console.error('PREDICT ERROR:', err);
     const message = typeof err === 'string' ? err : err.message || String(err);
+    if (req.body?.deviceId) {
+      emitPredictionError(req.body.deviceId, message);
+    }
     const statusCode = message.includes('Missing ML artifacts') ? 503 : 500;
     return res.status(statusCode).json({
       success: false,

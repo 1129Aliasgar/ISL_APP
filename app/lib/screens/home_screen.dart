@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSpeaking = false;
   String _statusMessage = 'Disconnected';
   String _lastPrediction = '—';
+  String? _pendingGesture;
   String? _deviceId;
   GestureSessionState _sessionState = GestureSessionState.disconnected;
 
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<GestureSessionState>? _stateSub;
   StreamSubscription<String>? _statusSub;
   StreamSubscription<String>? _predictionSub;
+  StreamSubscription<String?>? _pendingSub;
 
   @override
   void initState() {
@@ -55,6 +57,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _lastPrediction = text);
     });
+    _pendingSub = GestureSessionService.pendingGestureStream.listen((gesture) {
+      if (!mounted) return;
+      setState(() => _pendingGesture = gesture);
+    });
   }
 
   Future<void> _refreshDeviceId() async {
@@ -65,12 +71,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleConnect() async {
     if (GestureSessionService.isConnected) {
-      await GestureSessionService.disconnect();
+      await GestureSessionService.disconnect(force: true);
       return;
     }
 
     setState(() => _statusMessage = 'Connecting...');
-    final ok = await GestureSessionService.connect(showCameraPreview: false);
+    final ok = await GestureSessionService.connect(
+      showCameraPreview: false,
+      useFrontCamera: true,
+    );
     if (!mounted) return;
     if (!ok) {
       setState(() => _statusMessage = 'Connection failed');
@@ -98,12 +107,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _stateSub?.cancel();
     _statusSub?.cancel();
     _predictionSub?.cancel();
+    _pendingSub?.cancel();
     super.dispose();
   }
 
   Widget _buildHomeTab(BuildContext context) {
     final isConnected = GestureSessionService.isConnected;
     final isConnecting = _sessionState == GestureSessionState.connecting;
+    final isCapturing = GestureSessionService.isCapturing;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -127,11 +138,48 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+        if (isConnected) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isCapturing ? null : GestureSessionService.startCapture,
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Start'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: isCapturing ? GestureSessionService.endCapture : null,
+                  icon: const Icon(Icons.stop_rounded),
+                  label: const Text('End'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF4FD8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 24),
         SectionCard(
           title: 'Live Translation',
           subtitle: _deviceId == null ? 'No device linked' : 'Device: $_deviceId',
         ),
+        if (_pendingGesture != null)
+          SectionCard(
+            title: 'Pending Gesture',
+            subtitle: 'Press End to send to gesture device',
+            child: Text(
+              _pendingGesture!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: const Color(0xFF00E5FF),
+                  ),
+            ),
+          ),
         SectionCard(
           title: 'Recognized Gesture',
           child: Padding(
@@ -158,14 +206,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         if (isConnected)
           SectionCard(
-            title: 'Test Gestures',
-            subtitle: 'Send gesture to external device until on-phone YOLO is bundled',
+            title: 'Quick Gestures',
+            subtitle: isCapturing
+                ? 'Tap a gesture, then press End'
+                : 'Press Start first, or tap to send immediately',
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
               children: ['A', 'B', 'C', 'HELLO', 'HI'].map((gesture) {
                 return OutlinedButton(
-                  onPressed: () => GestureSessionService.submitGesture(gesture),
+                  onPressed: () => GestureSessionService.selectGesture(gesture),
                   child: Text(gesture),
                 );
               }).toList(),

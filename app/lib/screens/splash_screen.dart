@@ -40,13 +40,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0A0614),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ScaleTransition(
               scale: _scale,
-              child: const AppLogo(size: 140),
+              child: const AppLogo(size: 160),
             ),
             const SizedBox(height: 24),
             ShaderMask(
@@ -68,7 +69,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             const SizedBox(
               width: 28,
               height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.8),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.8,
+                color: Color(0xFFFF4FD8),
+              ),
             ),
           ],
         ),
@@ -76,5 +80,3 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
   }
 }
-
-

@@ -14,6 +14,8 @@ class SpeechService {
 
   static Future<void> _ensureInitialized() async {
     if (_initialized) return;
+
+    await _tts.awaitSpeakCompletion(true);
     _tts.setCompletionHandler(() => _speakingController.add(false));
     _tts.setCancelHandler(() => _speakingController.add(false));
     _tts.setErrorHandler((_) => _speakingController.add(false));
@@ -26,7 +28,12 @@ class SpeechService {
     await _ensureInitialized();
     final settings = await SettingsService.getSettings();
 
-    await _tts.setLanguage(_mapLanguage(settings['language'] as String));
+    final lang = _mapLanguage(settings['language'] as String);
+    final langOk = await _tts.setLanguage(lang);
+    if (langOk != 1) {
+      await _tts.setLanguage('en-US');
+    }
+
     await _tts.setPitch(settings['pitch'] as double);
     await _tts.setSpeechRate(_mapSpeechRate(settings['speed'] as double));
     await _tts.setVolume(settings['volume'] as double);
@@ -68,7 +75,6 @@ class SpeechService {
   }
 }
 
-/// Simple label map until full translation service is added.
 class GestureSpeechMapper {
   static const Map<String, String> _phrases = {
     'A': 'A',

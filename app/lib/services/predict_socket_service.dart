@@ -8,6 +8,7 @@ class PredictSocketService {
 
   static io.Socket? _socket;
   static String? _deviceId;
+  static bool _joined = false;
 
   static final StreamController<Map<String, dynamic>> _predictionController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -24,10 +25,17 @@ class PredictSocketService {
   static Stream<String> get errorStream => _errorController.stream;
   static Stream<bool> get connectionStream => _connectionController.stream;
 
-  static bool get isConnected => _socket?.connected == true;
+  static bool get isConnected => _socket?.connected == true && _joined;
+
+  static Map<String, dynamic> _normalizePayload(dynamic data) {
+    if (data is Map) {
+      return data.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return {};
+  }
 
   static Future<bool> connect({required String deviceId}) async {
-    if (_socket?.connected == true && _deviceId == deviceId) {
+    if (_socket?.connected == true && _deviceId == deviceId && _joined) {
       return true;
     }
 
@@ -40,6 +48,11 @@ class PredictSocketService {
     }
 
     _deviceId = deviceId;
+    _joined = false;
+
+    final completer = Completer<bool>();
+    Timer? joinTimeout;
+
     _socket = io.io(
       '${AppConstants.wsBaseUrl}/predict',
       io.OptionBuilder()
@@ -54,46 +67,64 @@ class PredictSocketService {
         _connectionController.add(true);
         _statusController.add('Connected to prediction stream');
         _socket!.emit('join', {'deviceId': deviceId, 'token': token});
+
+        joinTimeout = Timer(const Duration(seconds: 8), () {
+          if (!completer.isCompleted) {
+            completer.complete(false);
+            _errorController.add('Timed out joining predict room');
+          }
+        });
       })
-      ..on('joined', (_) {
+      ..on('joined', (data) {
+        _joined = true;
         _statusController.add('Listening for predictions...');
+        joinTimeout?.cancel();
+        if (!completer.isCompleted) completer.complete(true);
       })
       ..on('status', (data) {
-        if (data is Map && data['state'] == 'processing') {
+        final map = _normalizePayload(data);
+        if (map['state'] == 'processing') {
           _statusController.add('Processing gesture...');
         }
       })
       ..on('prediction:result', (data) {
-        if (data is Map) {
-          _predictionController.add(Map<String, dynamic>.from(data));
+        final map = _normalizePayload(data);
+        if (map.isNotEmpty) {
+          _predictionController.add(map);
         }
       })
       ..on('prediction:error', (data) {
-        if (data is Map) {
-          _errorController.add(data['message']?.toString() ?? 'Prediction error');
-        }
+        final map = _normalizePayload(data);
+        _errorController.add(map['message']?.toString() ?? 'Prediction error');
       })
       ..on('error', (data) {
-        if (data is Map) {
-          _errorController.add(data['message']?.toString() ?? 'Socket error');
-        }
+        final map = _normalizePayload(data);
+        _errorController.add(map['message']?.toString() ?? 'Socket error');
+        joinTimeout?.cancel();
+        if (!completer.isCompleted) completer.complete(false);
       })
       ..onDisconnect((_) {
+        _joined = false;
         _connectionController.add(false);
         _statusController.add('Disconnected');
+        joinTimeout?.cancel();
+        if (!completer.isCompleted) completer.complete(false);
       })
       ..onConnectError((err) {
+        _joined = false;
         _connectionController.add(false);
         _errorController.add('Connection failed: $err');
+        joinTimeout?.cancel();
+        if (!completer.isCompleted) completer.complete(false);
       });
 
     _socket!.connect();
 
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    return _socket?.connected == true;
+    return completer.future;
   }
 
   static Future<void> disconnect() async {
+    _joined = false;
     if (_socket != null) {
       if (_deviceId != null) {
         _socket!.emit('leave', {'deviceId': _deviceId});
