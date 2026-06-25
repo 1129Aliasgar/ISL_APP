@@ -1,4 +1,6 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:g_one/services/gesture_session_service.dart';
 import 'package:g_one/widgets/section_card.dart';
 
 class VideoCallingScreen extends StatefulWidget {
@@ -12,144 +14,179 @@ class VideoCallingScreen extends StatefulWidget {
 class _VideoCallingScreenState extends State<VideoCallingScreen> {
   String _currentGesture = 'None';
   String _convertedSpeech = '—';
-  bool _isProcessing = false;
+  String _statusMessage = 'Call not active';
   bool _isCallActive = false;
 
-  // Simulated gesture to text mapping
   final Map<String, String> _gestureToText = {
-    'Hello': 'Hello, how are you?',
-    'Thank You': 'Thank you very much',
-    'Yes': 'Yes, I agree',
-    'No': 'No, I disagree',
-    'Help': 'I need help',
-    'Good': 'That is good',
-    'Bad': 'That is bad',
+    'A': 'A',
+    'B': 'B',
+    'C': 'C',
+    'HELLO': 'Hello',
+    'HI': 'Hi',
   };
 
-  Future<void> _convertGestureToSpeech(String gesture) async {
-    final text = _gestureToText[gesture];
-    if (text == null) return;
-
-    setState(() {
-      _isProcessing = true;
-      _convertedSpeech = 'Processing...';
-    });
-
-    try {
-      // Demo-only screen: prediction + audio now comes from backend glove flow.
+  @override
+  void initState() {
+    super.initState();
+    GestureSessionService.lastPredictionStream.listen((text) {
+      if (!mounted) return;
       setState(() {
         _convertedSpeech = text;
+        _currentGesture = text;
       });
-    } catch (e) {
-      setState(() {
-        _convertedSpeech = 'Error: ${e.toString()}';
-      });
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
-    }
+    });
+    GestureSessionService.statusStream.listen((status) {
+      if (!mounted || !_isCallActive) return;
+      setState(() => _statusMessage = status);
+    });
+    GestureSessionService.cameraGestureStream.listen((gesture) {
+      if (!mounted || !_isCallActive) return;
+      setState(() => _currentGesture = gesture);
+    });
   }
 
-  void _simulateGesture(String gesture) {
+  Future<void> _toggleCall(bool value) async {
+    if (value) {
+      setState(() {
+        _isCallActive = true;
+        _statusMessage = 'Starting camera...';
+      });
+
+      if (!GestureSessionService.isConnected) {
+        final ok = await GestureSessionService.connect(showCameraPreview: true);
+        if (!ok && mounted) {
+          setState(() {
+            _isCallActive = false;
+            _statusMessage = 'Could not start call session';
+          });
+          return;
+        }
+      }
+
+      if (mounted) {
+        setState(() => _statusMessage = 'Call active · make a gesture');
+      }
+      return;
+    }
+
+    await GestureSessionService.disconnect();
+    if (!mounted) return;
+    setState(() {
+      _isCallActive = false;
+      _currentGesture = 'None';
+      _convertedSpeech = '—';
+      _statusMessage = 'Call not active';
+    });
+  }
+
+  Future<void> _simulateGesture(String gesture) async {
+    if (!_isCallActive) return;
     setState(() {
       _currentGesture = gesture;
+      _convertedSpeech = 'Processing...';
     });
-    if (_isCallActive) {
-      _convertGestureToSpeech(gesture);
+    await GestureSessionService.submitGesture(gesture);
+  }
+
+  Widget _buildCameraPreview() {
+    final controller = GestureSessionService.camera.controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return Container(
+        height: 220,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text('Camera preview unavailable'),
+      );
     }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 220,
+        width: double.infinity,
+        child: CameraPreview(controller),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final content = ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+      padding: const EdgeInsets.all(16),
+      children: [
+        SectionCard(
+          title: 'Call Status',
+          subtitle: _statusMessage,
+          trailing: IconButton(
+            icon: Icon(
+              _isCallActive ? Icons.call_end : Icons.video_call,
+              color: _isCallActive ? Colors.redAccent : const Color(0xFF00E5FF),
+            ),
+            onPressed: () => _toggleCall(!_isCallActive),
+          ),
+        ),
+        if (_isCallActive)
           SectionCard(
-            title: 'Call Status',
-            subtitle: _isCallActive ? 'Call in progress' : 'Call not active',
-            trailing: Switch(
-              value: _isCallActive,
-              onChanged: (value) {
-                setState(() {
-                  _isCallActive = value;
-                  if (!value) {
-                    _currentGesture = 'None';
-                    _convertedSpeech = '—';
-                  }
-                });
-              },
+            title: 'Camera',
+            subtitle: 'YOLO will detect gestures from this feed',
+            child: _buildCameraPreview(),
+          ),
+        SectionCard(
+          title: 'Current Gesture',
+          subtitle: 'Detected gesture label',
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              _currentGesture,
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
             ),
           ),
-          SectionCard(
-            title: 'Current Gesture',
-            subtitle: 'ISL gesture detected',
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _currentGesture,
-                style: Theme.of(context).textTheme.titleLarge,
-                textAlign: TextAlign.center,
-              ),
+        ),
+        SectionCard(
+          title: 'Converted Speech',
+          subtitle: 'Backend prediction spoken on device',
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-          SectionCard(
-            title: 'Converted Speech',
-            subtitle: 'Text converted from gesture (sent to other person)',
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _convertedSpeech,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFF00E5FF),
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          if (_isProcessing)
-            const SectionCard(
-              title: 'Processing',
-              subtitle: 'Converting gesture to speech...',
-              trailing: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          SectionCard(
-            title: 'Quick Gestures',
-            subtitle: 'Tap to simulate gesture (for demo)',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _gestureToText.keys.map((gesture) {
-                return ElevatedButton(
-                  onPressed: _isCallActive ? () => _simulateGesture(gesture) : null,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              _convertedSpeech,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: const Color(0xFF00E5FF),
                   ),
-                  child: Text(gesture),
-                );
-              }).toList(),
+              textAlign: TextAlign.center,
             ),
           ),
-          const SectionCard(
-            title: 'Note',
-            subtitle: 'In production, gestures will be detected from Bluetooth glove in real-time',
+        ),
+        SectionCard(
+          title: 'Quick Gestures',
+          subtitle: 'Tap to simulate YOLO output until model is added',
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _gestureToText.keys.map((gesture) {
+              return ElevatedButton(
+                onPressed: _isCallActive ? () => _simulateGesture(gesture) : null,
+                child: Text(gesture),
+              );
+            }).toList(),
           ),
-        ],
+        ),
+      ],
     );
+
     if (widget.compact) return content;
     return Scaffold(
       appBar: AppBar(title: const Text('Video Calling')),
@@ -157,4 +194,3 @@ class _VideoCallingScreenState extends State<VideoCallingScreen> {
     );
   }
 }
-

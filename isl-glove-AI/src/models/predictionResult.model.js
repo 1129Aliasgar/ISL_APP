@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const predictionResultSchema = new mongoose.Schema(
   {
@@ -8,12 +8,12 @@ const predictionResultSchema = new mongoose.Schema(
       confidence: { type: Number },
       probabilities: { type: mongoose.Schema.Types.Mixed },
     },
-    audioUrl: { type: String, required: true },
-    audioFilename: { type: String, required: true },
+    audioUrl: { type: String },
+    audioFilename: { type: String },
   },
   { timestamps: true },
 );
 
 predictionResultSchema.index({ deviceId: 1, createdAt: -1 });
 
-module.exports = mongoose.model("PredictionResult", predictionResultSchema);
+module.exports = mongoose.model('PredictionResult', predictionResultSchema);

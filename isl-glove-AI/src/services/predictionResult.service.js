@@ -1,4 +1,4 @@
-const PredictionResult = require("../models/predictionResult.model");
+const PredictionResult = require('../models/predictionResult.model');
 
 const saveLatest = async ({ deviceId, prediction, audioUrl, audioFilename }) => {
   return PredictionResult.create({

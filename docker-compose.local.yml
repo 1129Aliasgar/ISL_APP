@@ -15,6 +15,7 @@ services:
       - PYTHON_PATH=python
       - MODEL_PATH=ml/model.tflite
       - JWT_SECRET=local-dev-jwt-secret
+      - DEVICE_TOKEN=local-dev-device-token
       - PUBLIC_BASE_URL=https://burthensome-emerald-libidinally.ngrok-free.dev
     volumes:
       - ./isl-glove-AI:/app

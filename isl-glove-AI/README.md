@@ -7,8 +7,8 @@ AI-powered backend and ML pipeline for Indian Sign Language (ISL) smart glove.
 - Single Node backend (`isl-glove-AI`) + MongoDB.
 - ESP32 posts sensor timesteps with `deviceId`.
 - Backend buffers readings per device until `end=true`.
-- On `end=true`, backend predicts gesture and generates speech audio internally.
-- Predict response returns JSON + public `audioUrl`.
+- On `end=true`, backend predicts gesture and emits text over the predict socket.
+- Flutter handles text-to-speech locally.
 
 This project collects real-time hand gesture data from an ESP32-based glove and:
 

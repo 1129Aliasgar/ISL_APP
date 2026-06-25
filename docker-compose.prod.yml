@@ -14,4 +14,5 @@ services:
       - PYTHON_PATH=python
       - MODEL_PATH=ml/model.tflite
       - JWT_SECRET=${JWT_SECRET}
+      - DEVICE_TOKEN=${DEVICE_TOKEN}
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}

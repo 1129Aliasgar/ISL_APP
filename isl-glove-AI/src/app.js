@@ -5,7 +5,6 @@ const morgan = require('morgan');
 const sensorRoutes = require('./routes/sensor.routes');
 const predictionRoutes = require('./routes/prediction.routes');
 const authRoutes = require('./routes/auth.routes');
-const audioRoutes = require('./routes/audio.routes');
 const errorMiddleware = require('./middlewares/error.middleware');
 
 const app = express();
@@ -17,7 +16,6 @@ app.use(morgan('dev'));
 app.use('/api/sensors', sensorRoutes);
 app.use('/api/predict', predictionRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api', audioRoutes);
 
 app.use(errorMiddleware);
 

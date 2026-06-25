@@ -5,8 +5,9 @@ import 'package:g_one/screens/game_controller_screen.dart';
 import 'package:g_one/screens/settings_screen.dart';
 import 'package:g_one/screens/translate_screen.dart';
 import 'package:g_one/screens/video_calling_screen.dart';
-import 'package:g_one/services/api_service.dart';
 import 'package:g_one/services/auth_service.dart';
+import 'package:g_one/services/gesture_session_service.dart';
+import 'package:g_one/services/speech_service.dart';
 import 'package:g_one/widgets/section_card.dart';
 import 'package:g_one/widgets/voice_assistant_orb.dart';
 
@@ -20,12 +21,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedTab = 0;
   bool _isSpeaking = false;
-  String _statusMessage = 'Listening for glove gestures...';
+  String _statusMessage = 'Disconnected';
   String _lastPrediction = '—';
   String? _deviceId;
-  String? _lastPredictionId;
-  Timer? _pollTimer;
+  GestureSessionState _sessionState = GestureSessionState.disconnected;
+
   StreamSubscription<bool>? _speakingSub;
+  StreamSubscription<GestureSessionState>? _stateSub;
+  StreamSubscription<String>? _statusSub;
+  StreamSubscription<String>? _predictionSub;
 
   @override
   void initState() {
@@ -35,66 +39,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initSession() async {
     await _refreshDeviceId();
-    _speakingSub = ApiService.speakingStream.listen((speaking) {
+    _speakingSub = SpeechService.speakingStream.listen((speaking) {
       if (!mounted) return;
       setState(() => _isSpeaking = speaking);
     });
-    _startPolling();
-  }
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollLatestPrediction());
-    _pollLatestPrediction();
-  }
-
-  Future<void> _pollLatestPrediction() async {
-    final deviceId = _deviceId;
-    if (deviceId == null || deviceId.isEmpty) return;
-
-    final result = await ApiService.fetchLatestPrediction(deviceId);
-    if (!mounted) return;
-
-    if (result['notFound'] == true) {
-      setState(() {
-        _statusMessage = 'Waiting for first gesture from glove...';
-      });
-      return;
-    }
-
-    if (result['success'] != true) {
-      setState(() {
-        _statusMessage = result['message']?.toString() ?? 'Could not fetch prediction';
-      });
-      return;
-    }
-
-    final id = result['id']?.toString();
-    if (id == null || id == _lastPredictionId) return;
-
-    final prediction = result['prediction'] as Map<String, dynamic>?;
-    final character = prediction?['character']?.toString() ?? '—';
-    final audioUrl = result['audioUrl'] as String?;
-
-    setState(() {
-      _lastPredictionId = id;
-      _lastPrediction = character;
-      _statusMessage = 'New prediction received';
-    });
-
-    if (audioUrl != null && audioUrl.isNotEmpty) {
-      final played = await ApiService.playAudioFromUrl(audioUrl);
+    _stateSub = GestureSessionService.stateStream.listen((state) {
       if (!mounted) return;
-      setState(() {
-        _statusMessage = played ? 'Playing: $character' : 'Prediction ready (audio failed)';
-      });
-    }
+      setState(() => _sessionState = state);
+    });
+    _statusSub = GestureSessionService.statusStream.listen((status) {
+      if (!mounted) return;
+      setState(() => _statusMessage = status);
+    });
+    _predictionSub = GestureSessionService.lastPredictionStream.listen((text) {
+      if (!mounted) return;
+      setState(() => _lastPrediction = text);
+    });
   }
 
   Future<void> _refreshDeviceId() async {
     final value = await AuthService.getDeviceId();
     if (!mounted) return;
     setState(() => _deviceId = value);
+  }
+
+  Future<void> _toggleConnect() async {
+    if (GestureSessionService.isConnected) {
+      await GestureSessionService.disconnect();
+      return;
+    }
+
+    setState(() => _statusMessage = 'Connecting...');
+    final ok = await GestureSessionService.connect(showCameraPreview: false);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() => _statusMessage = 'Connection failed');
+    }
   }
 
   Future<void> _openProfile() async {
@@ -114,12 +94,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
     _speakingSub?.cancel();
+    _stateSub?.cancel();
+    _statusSub?.cancel();
+    _predictionSub?.cancel();
     super.dispose();
   }
 
   Widget _buildHomeTab(BuildContext context) {
+    final isConnected = GestureSessionService.isConnected;
+    final isConnecting = _sessionState == GestureSessionState.connecting;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -128,6 +113,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: VoiceAssistantOrb(
             isSpeaking: _isSpeaking,
             size: 240,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: FilledButton.icon(
+            onPressed: isConnecting ? null : _toggleConnect,
+            icon: Icon(isConnected ? Icons.link_off_rounded : Icons.link_rounded),
+            label: Text(isConnected ? 'Disconnect' : 'Connect'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(200, 48),
+              backgroundColor: isConnected ? Colors.redAccent : const Color(0xFF7B61FF),
+            ),
           ),
         ),
         const SizedBox(height: 24),
@@ -154,8 +151,26 @@ class _HomeScreenState extends State<HomeScreen> {
           subtitle: _statusMessage,
           trailing: _isSpeaking
               ? const Icon(Icons.graphic_eq, color: Color(0xFFFF4FD8))
-              : const Icon(Icons.hearing_outlined),
+              : Icon(
+                  isConnected ? Icons.sensors : Icons.sensors_off,
+                  color: isConnected ? const Color(0xFF00E5FF) : Colors.white54,
+                ),
         ),
+        if (isConnected)
+          SectionCard(
+            title: 'Test Gestures',
+            subtitle: 'Send gesture to external device until on-phone YOLO is bundled',
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['A', 'B', 'C', 'HELLO', 'HI'].map((gesture) {
+                return OutlinedButton(
+                  onPressed: () => GestureSessionService.submitGesture(gesture),
+                  child: Text(gesture),
+                );
+              }).toList(),
+            ),
+          ),
       ],
     );
   }

@@ -303,6 +303,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 | Document | Description |
 |----------|-------------|
+| [EXTERNAL_GESTURE_DEVICE.md](EXTERNAL_GESTURE_DEVICE.md) | External laptop — gesture API + sensor socket integration |
 | [PROJECT_INFORMATION.md](PROJECT_INFORMATION.md) | Full project reference — APIs, env vars, data flow |
 | [isl-glove-AI/README.md](isl-glove-AI/README.md) | Backend & ML pipeline details |
 | [app/README.md](app/README.md) | Flutter app overview |
