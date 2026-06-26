@@ -139,6 +139,7 @@ class GestureSessionService {
 
     _connectionRefs = 0;
     _captureActive = false;
+    _camera.setInferenceEnabled(false);
     _pendingGesture = null;
     _pendingGestureController.add(null);
 
@@ -168,6 +169,7 @@ class GestureSessionService {
     _captureActive = true;
     _pendingGesture = null;
     _pendingGestureController.add(null);
+    _camera.setInferenceEnabled(true);
     _setState(GestureSessionState.capturing, 'Capture started · perform gesture');
   }
 
@@ -194,6 +196,7 @@ class GestureSessionService {
     if (!isConnected || !_captureActive) return;
 
     _captureActive = false;
+    _camera.setInferenceEnabled(false);
 
     if (_pendingGesture == null || _pendingGesture!.isEmpty) {
       _setState(GestureSessionState.connected, 'No gesture captured · try again');
