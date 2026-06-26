@@ -31,7 +31,7 @@ class AppConstants {
   /// External laptop: YOLO + gesture → sensor template → streams to our backend.
   static const String gestureDeviceUrl = String.fromEnvironment(
     'GESTURE_DEVICE_URL',
-    defaultValue: 'https://7767-2401-4900-c0c4-8520-987-823d-1946-1bf4.ngrok-free.app',
+    defaultValue: 'https://6a47-103-26-59-253.ngrok-free.app',
   );
 
   static const String registerEndpoint = '/auth/register';
